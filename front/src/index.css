@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-slate-50 text-slate-900;
+}
+
+.bg-aurora {
+  background: radial-gradient(circle at 50% 50%, #f1f5f9 0%, #e2e8f0 100%);
+  background-size: 400% 400%;
+  animation: aurora 15s ease infinite;
+}
+
+@keyframes aurora {
+  0% { background-position: 0% 50% }
+  50% { background-position: 100% 50% }
+  100% { background-position: 0% 50% }
+}
