@@ -1,24 +1,24 @@
 import { useState } from 'react';
-import { Loader2, Plus, Zap, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 
-export default function DeviceForm({ salaId, onAdded }) {
-  const [nombre, setNombre] = useState('');
-  const [tipo, setTipo] = useState('Enchufe');
+export default function DeleteDevice({ salaId, dispositivoId, nombre, onDeleted, onCancel }) {
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null); 
+  const [status, setStatus] = useState('idle'); 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleDelete = async () => {
     setLoading(true);
-    setStatus(null);
+    setStatus('loading');
 
     try {
-      const response = await api.post(`/api/salas/${salaId}/dispositivos`, { nombre, tipo, estado: 'off' });
+      await api.delete(`/api/salas/${salaId}/dispositivos/${dispositivoId}`);
       setStatus('success');
-      setTimeout(() => { if (onAdded) onAdded(response.data); }, 1500);
+      setTimeout(() => {
+        if (onDeleted) onDeleted(dispositivoId);
+      }, 1200);
     } catch (error) {
+      console.error("Error eliminando:", error);
       setStatus('error');
       setLoading(false);
     }
@@ -26,53 +26,60 @@ export default function DeviceForm({ salaId, onAdded }) {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 10 }} 
-      animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 shadow-inner mt-4"
+      initial={{ opacity: 0, scale: 0.9 }} 
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className="bg-white p-8 rounded-[2.5rem] border border-red-100 shadow-2xl max-w-sm w-full mx-auto text-center"
     >
       <AnimatePresence mode="wait">
         {status === 'success' ? (
           <motion.div 
             key="success"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-4 space-y-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center space-y-4"
           >
-            <CheckCircle2 size={40} className="text-green-500" />
-            <p className="font-black text-slate-800 text-xs uppercase tracking-widest">Enlace Exitoso</p>
+            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center">
+              <CheckCircle2 size={40} className="text-green-500" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Desvinculado</h3>
+              <p className="text-slate-400 text-sm">El dispositivo ha sido removido.</p>
+            </div>
           </motion.div>
         ) : (
-          <motion.form 
-            key="form"
-            onSubmit={handleSubmit} className="space-y-4"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Zap size={16} className="text-indigo-600" />
-              <h3 className="font-black text-xs text-slate-400 uppercase tracking-widest">Nuevo Dispositivo</h3>
+          <motion.div key="confirm" className="space-y-6">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                <AlertCircle size={32} />
+              </div>
             </div>
-            
-            <input 
-              type="text" placeholder="Nombre (ej. Cafetera)" value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              className="w-full p-4 rounded-2xl bg-white border-none shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold"
-              required
-            />
 
-            <select 
-              value={tipo} onChange={(e) => setTipo(e.target.value)}
-              className="w-full p-4 rounded-2xl bg-white border-none shadow-sm cursor-pointer outline-none font-bold"
-            >
-              <option>Enchufe</option>
-              <option>Luz</option>
-              <option>Sensor</option>
-            </select>
+            <div className="space-y-2">
+              <h3 className="font-black text-slate-900 text-xl tracking-tight">¿Eliminar {nombre}?</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Esta acción desconectará el dispositivo de la red de la sala de forma permanente.
+              </p>
+            </div>
 
-            <button 
-              type="submit" disabled={loading}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-600 transition-all cursor-pointer flex justify-center items-center gap-2"
-            >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : <><Plus size={20} /> Emparejar</>}
-            </button>
-          </motion.form>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleDelete}
+                disabled={loading}
+                className="w-full py-4 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 transition-all flex justify-center items-center gap-2 shadow-lg shadow-red-100 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="animate-spin" size={20} /> : <><Trash2 size={18} /> Confirmar Baja</>}
+              </button>
+
+              <button
+                onClick={onCancel}
+                disabled={loading}
+                className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all flex justify-center items-center gap-2"
+              >
+                <X size={18} /> Cancelar
+              </button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

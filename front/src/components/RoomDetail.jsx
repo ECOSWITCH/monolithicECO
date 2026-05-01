@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Power, Settings, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, X } from 'lucide-react';
+import { Power, Settings, Trash2, Loader2, AlertCircle, CheckCircle2, Clock, X, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import DeviceForm from './DeviceForm';
@@ -11,9 +11,11 @@ export default function RoomDetail({ sala, onBack }) {
   const [showDeviceForm, setShowDeviceForm] = useState(false);
   const [configDispId, setConfigDispId] = useState(null);
   const [tiempo, setTiempo] = useState(30);
-  const [timeLeft, setTimeLeft] = useState(null); // Segundos para el contador en vivo
+  const [timeLeft, setTimeLeft] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
   
+  const [confirmDelete, setConfirmDelete] = useState({ show: false, dispId: null, nombre: '' });
+
   const countdownRef = useRef(null);
 
   useEffect(() => {
@@ -52,7 +54,6 @@ export default function RoomDetail({ sala, onBack }) {
     try {
       await api.post(`/api/control/${localSala.id}/programar-apagado?minutos=${tiempo}`);
       showToast(`Apagado programado en ${tiempo} min`, "success");
-      
       setTimeLeft(Number(tiempo) * 60);
     } catch {
       showToast("Error al programar", "error");
@@ -69,8 +70,9 @@ export default function RoomDetail({ sala, onBack }) {
     }
   };
 
-  const handleDelete = async (dispId) => {
-    if (!confirm("¿Eliminar este dispositivo?")) return;
+  const executeDelete = async () => {
+    const { dispId } = confirmDelete;
+    setLoading(true);
     try {
       await api.delete(`/api/salas/${localSala.id}/dispositivos/${dispId}`);
       setLocalSala({ 
@@ -80,6 +82,9 @@ export default function RoomDetail({ sala, onBack }) {
       showToast("Dispositivo eliminado", "success");
     } catch {
       showToast("Error al eliminar", "error");
+    } finally {
+      setLoading(false);
+      setConfirmDelete({ show: false, dispId: null, nombre: '' });
     }
   };
 
@@ -93,7 +98,7 @@ export default function RoomDetail({ sala, onBack }) {
     <motion.div 
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }}
-      className="max-w-md mx-auto p-6 font-sans text-slate-800"
+      className="max-w-md mx-auto p-6 font-sans text-slate-800 pb-20"
     >
       <button onClick={onBack} className="flex items-center gap-2 text-slate-400 mb-6 hover:text-indigo-600 transition-colors font-medium cursor-pointer">
         <X size={18} /> Cerrar Sala
@@ -135,7 +140,6 @@ export default function RoomDetail({ sala, onBack }) {
           )}
         </motion.button>
 
-        {/* CONTADOR EN VIVO */}
         {timeLeft !== null && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -165,7 +169,7 @@ export default function RoomDetail({ sala, onBack }) {
         </div>
       </div>
 
-      {/* DISPOSITIVOS */}
+      {/* LISTA DE DISPOSITIVOS */}
       <div className="space-y-4">
         <h3 className="font-black text-slate-300 uppercase text-[10px] tracking-[0.3em] ml-2">Dispositivos</h3>
         <AnimatePresence>
@@ -180,8 +184,13 @@ export default function RoomDetail({ sala, onBack }) {
                 <span className="font-bold text-slate-700">{disp.nombre}</span>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => setConfigDispId(configDispId === disp.id ? null : disp.id)} className="p-2 text-slate-300 hover:text-indigo-600 cursor-pointer"><Settings size={18} /></button>
-                <button onClick={() => handleDelete(disp.id)} className="p-2 text-slate-300 hover:text-red-500 cursor-pointer"><Trash2 size={18} /></button>
+                <button onClick={() => setConfigDispId(configDispId === disp.id ? null : disp.id)} className="p-2 text-slate-300 hover:text-indigo-600 cursor-pointer transition-colors"><Settings size={18} /></button>
+                <button 
+                  onClick={() => setConfirmDelete({ show: true, dispId: disp.id, nombre: disp.nombre })} 
+                  className="p-2 text-slate-300 hover:text-red-500 cursor-pointer transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
             </motion.div>
           ))}
@@ -199,7 +208,48 @@ export default function RoomDetail({ sala, onBack }) {
         {showDeviceForm && <DeviceForm salaId={localSala.id} onAdded={() => { setShowDeviceForm(false); }} />}
       </div>
 
-      {/* TOAST */}
+      {/* MODAL PROFESIONAL DE ELIMINACIÓN */}
+      <AnimatePresence>
+        {confirmDelete.show && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setConfirmDelete({ show: false, dispId: null, nombre: '' })}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-xs p-8 rounded-[3rem] shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={32} />
+              </div>
+              <h4 className="text-xl font-black text-slate-900 mb-2 tracking-tight">¿Eliminar hardware?</h4>
+              <p className="text-slate-500 text-sm mb-8 leading-relaxed">
+                Estás por desvincular <b>{confirmDelete.nombre}</b>. Esta acción no se puede deshacer.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={executeDelete}
+                  className="w-full py-4 bg-red-500 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 transition-colors shadow-lg shadow-red-200 cursor-pointer"
+                >
+                  Sí, Eliminar
+                </button>
+                <button 
+                  onClick={() => setConfirmDelete({ show: false, dispId: null, nombre: '' })}
+                  className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* TOAST NOTIFICACIÓN */}
       <AnimatePresence>
         {toast.show && (
           <motion.div 
